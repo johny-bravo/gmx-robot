@@ -188,6 +188,7 @@ class CaptchaGui(object):
         self.button['font'] = self.font
 
     def save_and_quit(self, *args):
+        # need *args for .get() to work
         self.result = self.entry.get()
         self.master.destroy()
 
@@ -994,12 +995,23 @@ class SshTunnel(object):
         return tunnel
 
 
+class Runner(object):
+    """ wrapper for main to avoid global namespace """
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def run():
+        c = ConfigParser('gmx_robot.cfg')
+        s = SshTunnel(c)
+        for p in s.proxy_list:
+            s.kill_all_ssh()
+            tunn = s.spawn_tunnel(p)
+            gmx = GmxRobot(config=c, proxy=tunn)
+            gmx.run()
+            print gmx.data
+
+
 if __name__ == '__main__':
-    c = ConfigParser('gmx_robot.cfg')
-    s = SshTunnel(c)
-    for p in s.proxy_list:
-        s.kill_all_ssh()
-        tunn = s.spawn_tunnel(p)
-        gmx = GmxRobot(config=c, proxy=tunn)
-        gmx.run()
-        print gmx.data
+    Runner().run()
