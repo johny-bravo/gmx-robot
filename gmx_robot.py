@@ -4,7 +4,7 @@ GMX EMAIL AUTOREG ROBOT
 
 DATA REQUIRED:
     reg_url        https://registrierung.gmx.net/
-    ip             123.123.123.123
+    reg_ip         123.123.123.123, https://api.ipify.org
     gender         male || female
     name           male_name_db || female_name_db
     surname        surname db
@@ -20,6 +20,7 @@ DATA REQUIRED:
     phone          can be blank
     secret         maiden name, from female_name_db
     captcha        rucaptcha or selfsolve with gui
+    proxy          socks5 + ssh tunnel to proxy server
 
 MISC:
     for socks proxy to work with requests module on win:
@@ -80,7 +81,7 @@ class RuCaptcha(object):
 
         print res.content
         if res.content.startswith('OK'):
-            capt_id = res.content.split('|')[1].lower()
+            capt_id = res.content.split('|')[1]
 
         return capt_id
 
@@ -503,7 +504,7 @@ class DataInit(object):
     def line_from_parsed(path_to_file):
         """
         read file into memory
-        and return random element from list
+        and return random element from list of lines
         """
         with open(path_to_file, 'r') as infile:
             lines = []
@@ -592,8 +593,8 @@ class Password(object):
 class FirefoxDriver(object):
     """
     setup working driver for Firefox
-    :param proxy (str) socks5
-    :param config (obj) ConfigParser
+    :param proxy: (str) socks5
+    :param config: (obj) ConfigParser
     """
 
     def __init__(self, config, proxy):
@@ -607,10 +608,13 @@ class FirefoxDriver(object):
         self.driver = webdriver.Firefox(firefox_profile=self.fox_profile,
                                         firefox_binary=self.fox_path,
                                         log_path=os.devnull)
-        self.driver.implicitly_wait(60)
+        self.driver.implicitly_wait(60)  # err after 60 sec
 
     def check_gecko(self):
-        """ for firefox to work, gecko must be in path """
+        """
+        for firefox to work, dir named 'Geckodriver'
+        with geckodriver.exe must be in path
+        """
         if 'Geckodriver' not in os.environ['PATH']:
             os.environ['PATH'] += os.pathsep + self.gecko_path
 
@@ -658,9 +662,9 @@ class FirefoxDriver(object):
 class GmxRobot(object):
     """
     main class. sing up and save credentials to disk
-    repetative methods are daisy chained for
+    repetitive methods are daisy chained for convenience
     todo: should be able to swap FirefoxDriver with another (chrome, phantomjs)
-    :param proxy (str) 'host:port'
+    :param proxy: (str) 'host:port'
     """
 
     def __init__(self, config, proxy):
@@ -739,7 +743,7 @@ class GmxRobot(object):
         # sign up successfull, save data
         self.save_data()
 
-        # post sign up tasks, scroll though popups
+        # post sign up tasks, scroll though popups, go to inbox
         _continue_btn = self.driver.find_element_by_id('weiterBtn')
         self.scroll_into_view(_continue_btn).sleep(0.5, 1.5)
         self.click(_continue_btn).sleep(5, 10)
@@ -749,6 +753,7 @@ class GmxRobot(object):
         self.driver.get('https://navigator.gmx.net/mail?' + url_session)
         self.sleep(5, 10)
 
+        # close browser
         os.system('taskkill /F /IM plugin-container.exe')
         self.driver.quit()
 
@@ -780,17 +785,16 @@ class GmxRobot(object):
 
     def submit(self):
         """
-        submit all data and register
+        submit all data and sign up
         if captcha fails, restart
         """
 
         submit_btn = self.driver.find_element_by_id('submitButton')
         submit_btn.click()
 
-        # err = 'feedbackPanelERROR'
         self.sleep(6.5, 9.5)
         if self.driver.current_url.startswith(self.config.reg_url):
-            # report captcha
+            # report captcha and reset current id
             self.rucapt.snitch(self.current_solve_id)
             self.current_solve_id = ''
 
@@ -803,9 +807,10 @@ class GmxRobot(object):
 
     def get_captcha_img(self):
         """
-        scroll captcha into view, save screenshot to memory as base64
-        crop using PIL, save to disk as 'out.png'
-        return PIL.Image.Image class + save image to disk with timestamp
+        scroll captcha into view
+        save screenshot to memory as base64
+        crop using PIL
+        return PIL.Image.Image class
         """
 
         captcha_refresh = self.driver.find_element_by_id('get_new_captcha')
@@ -832,6 +837,7 @@ class GmxRobot(object):
     @staticmethod
     def solve_with_gui(img):
         """
+        this can be used instead of service api
         spawn quick gui popup for manual entry of captcha
         popup already has focus on entry field
         usage: enter captcha + press <Return>
@@ -842,6 +848,9 @@ class GmxRobot(object):
 
     def solve_with_service(self, img):
         """
+        solve with captcha service
+        saves image to disk with timestamp
+
         :param img -> 'PIL.Image.Image' class
 
         todo: add 'base64' and 'file' as inputs
@@ -891,6 +900,7 @@ class GmxRobot(object):
         return self  # daisy chain
 
     def select_opt(self, el, opt_text):
+        """ select option from dropdown menu """
         sel = Select(el)
         sel.select_by_visible_text(opt_text)
         return self  # daisy chain
@@ -916,10 +926,10 @@ class GmxRobot(object):
 
 class SshTunnel(object):
     """
-    spawn ssh tunnels for every proxy in list
+    spawn ssh tunnel for proxy
     remote proxy should be listening on its local port
-    ssh should authorize by private key
-    :param config ConfigParser class
+    ssh should authenticate by private key
+    :param config: (obj) ConfigParser
     """
 
     def __init__(self, config):
@@ -952,7 +962,7 @@ class SshTunnel(object):
 
     def parse_proxy(self):
         """
-        parse proxy file and append proxies to list
+        parse proxy file and append proxies to proxy list
         """
         with open(self.proxy_file, 'r') as f:
             for line in f:
@@ -962,8 +972,8 @@ class SshTunnel(object):
 
     def spawn_tunnel(self, proxy):
         """
-        for every proxy in the list
-        spawn tunnel on localhost:8081 and upper ports
+        for proxy spawn tunnel on localhost:8081
+        :return tunnel: for firefox to use as proxy
         """
 
         proxy_host, proxy_port = proxy.split(':')
