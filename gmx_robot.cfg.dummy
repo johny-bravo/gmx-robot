@@ -1,0 +1,38 @@
+# sing up page url
+regurl "https://registrierung.gmx.net/"
+
+# path to male names file
+mnames "./data/names_m.txt"
+
+# path to female names file
+fnames "./data/names_f.txt"
+
+# path to surnames file
+surnames "./data/surnames.txt"
+
+# path to location file
+location "./data/location.txt"
+
+# path to proxy list file
+proxy "./data/proxy_list.txt"
+
+# path to data file
+data "./data/data.txt"
+
+# path to firefox executable
+firefox "C:\Program Files\Mozilla Firefox\firefox.exe"
+
+# path to geckodriver directory
+gecko "C:\Program Files\Geckodriver\"
+
+# rucaptcha api key
+rucapt "rucapt api key"
+
+# path to local ssh executable
+ssh_exe "C:\openSSH\ssh.exe"
+
+# ssh remote user
+ssh_usr "username of ssh tunnel"
+
+# ssh remote port
+ssh_port "ssh port"
