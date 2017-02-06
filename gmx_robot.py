@@ -596,6 +596,12 @@ class FirefoxDriver(object):
     setup working driver for Firefox
     :param proxy: (str) socks5
     :param config: (obj) ConfigParser
+
+    Misc:
+        when not closed properly,
+        driver leaves behind A LOT OF TRASH
+        see \appdata\local\temp\
+        see self.fox_profile.profile_dir
     """
 
     def __init__(self, config, proxy):
