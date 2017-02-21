@@ -33,6 +33,7 @@ MISC:
 import os
 import random
 import socks  # this should stay for socks to work
+import sys
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from PIL import Image, ImageTk
@@ -126,6 +127,7 @@ class RuCaptcha(object):
         2 - minbid in rub ie 0.044 for 44 rub
         3 - avg gecognition time ie 12.0
         """
+        # todo this seems not to work anymore, check
         url = 'http://rucaptcha.com/load.php'
         h = self.user_agent
         res = requests.get(url, headers=h)
@@ -950,7 +952,6 @@ class SshTunnel(object):
         self.pid = ''
         self.tunnel_list = []
         self.localhost = '127.0.0.1'
-        self.localport = 8081
         self.parse_proxy()
 
     def kill_pid(self):
@@ -977,7 +978,7 @@ class SshTunnel(object):
                 if line:
                     self.proxy_list.append(line)
 
-    def spawn_tunnel(self, proxy):
+    def spawn_tunnel(self, proxy, localport=8081):
         """
         for proxy spawn tunnel on localhost:8081
         :return tunnel: for firefox to use as proxy
@@ -989,16 +990,18 @@ class SshTunnel(object):
         # ssh.exe -N -L localport:localhost:proxyport user@proxy -p sshport
 
         cmd = '%s -N -L %s:%s:%s %s@%s -p %s' % (
-            self.ssh_exe, self.localport, self.localhost, proxy_port,
+            self.ssh_exe, localport, self.localhost, proxy_port,
             self.ssh_usr, proxy_host, self.ssh_port)
 
+        print '%s' % cmd
+
         proc = subprocess.Popen(cmd)
-        tunnel = '%s:%s' % (self.localhost, self.localport)
+
+        tunnel = '%s:%s' % (self.localhost, localport)
         print 'spawned ssh tunnel on %s to %s with PID:%s' % (tunnel, proxy,
                                                               proc.pid)
 
-        self.pid = proc.pid
-        return tunnel
+        return tunnel, proc.pid
 
 
 class Runner(object):
